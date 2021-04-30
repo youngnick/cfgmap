@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -9,7 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func RunPlugin(configFlags *genericclioptions.ConfigFlags, outputCh chan string) error {
+func RunPlugin(ctx context.Context, configFlags *genericclioptions.ConfigFlags, outputCh chan string) error {
 	config, err := configFlags.ToRESTConfig()
 	if err != nil {
 		return errors.Wrap(err, "failed to read kubeconfig")
@@ -20,13 +21,13 @@ func RunPlugin(configFlags *genericclioptions.ConfigFlags, outputCh chan string)
 		return errors.Wrap(err, "failed to create clientset")
 	}
 
-	namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
+	namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return errors.Wrap(err, "failed to list namespaces")
 	}
 
 	for _, namespace := range namespaces.Items {
-		configmaps, err := clientset.CoreV1().ConfigMaps(namespace.Name).List(metav1.ListOptions{})
+		configmaps, err := clientset.CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return errors.Wrap(err, "failed to list namespaces")
 		}

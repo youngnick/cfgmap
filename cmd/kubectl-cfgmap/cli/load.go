@@ -16,36 +16,25 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
-// loadCmd represents the load command
-var loadCmd = &cobra.Command{
-	Use:   "load",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+func newLoadCmd(ctx context.Context, ioStreams genericclioptions.IOStreams, factory cmdutil.Factory) *cobra.Command {
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("load called")
-	},
-}
+	// loadCmd represents the load command
+	var loadCmd = &cobra.Command{
+		Use:   "load",
+		Short: "Load files from a directory into a ConfigMap.",
+		Long:  `Load files from a directory into a ConfigMap.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("load called")
+		},
+	}
 
-func init() {
-	rootCmd.AddCommand(loadCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// loadCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// loadCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	return loadCmd
 }

@@ -16,7 +16,9 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -25,6 +27,8 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
 var cfgFile string
@@ -33,40 +37,43 @@ var (
 	KubernetesConfigFlags *genericclioptions.ConfigFlags
 )
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "cfgmap",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+func NewRootCmd(ctx context.Context, in io.Reader, out io.Writer, err io.Writer) *cobra.Command {
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
-}
-
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	KubernetesConfigFlags = genericclioptions.NewConfigFlags(true)
-	KubernetesConfigFlags.AddFlags(rootCmd.PersistentFlags())
-
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
+
+	// rootCmd represents the base command when called without any subcommands
+	rootCmd := &cobra.Command{
+		Use:   "cfgmap",
+		Short: "A brief description of your application",
+		Long: `A longer description that spans multiple lines and likely contains
+examples and usage of using your application. For example:
+
+Cobra is a CLI library for Go that empowers applications.
+This application is a tool to generate the needed files
+to quickly create a Cobra application.`,
+		// Uncomment the following line if your bare application
+		// has an action associated with it:
+		// Run: func(cmd *cobra.Command, args []string) { },
+	}
+
+	cobra.OnInitialize(initConfig)
+
+	KubernetesConfigFlags = genericclioptions.NewConfigFlags(false)
+	KubernetesConfigFlags.AddFlags(rootCmd.PersistentFlags())
+
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+	factory := cmdutil.NewFactory(KubernetesConfigFlags)
+	ioStreams := genericclioptions.IOStreams{In: in, Out: out, ErrOut: err}
+
+	rootCmd.AddCommand(newDumpCmd(ctx, ioStreams, factory))
+	rootCmd.AddCommand(newLoadCmd(ctx, ioStreams, factory))
+	return rootCmd
 
 }
 
