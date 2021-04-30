@@ -8,7 +8,11 @@ test:
 
 .PHONY: bin
 bin: fmt vet
-	go build -o bin/kubectl-cfgmap github.com/youngnick/cfgmap/cmd/plugin
+	go build -o bin/kubectl-cfgmap github.com/youngnick/cfgmap/cmd/kubectl-cfgmap
+
+.PHONY: install
+install: fmt vet
+	go install github.com/youngnick/cfgmap/cmd/kubectl-cfgmap
 
 .PHONY: fmt
 fmt:
