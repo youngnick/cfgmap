@@ -1,89 +1,94 @@
+/*
+Copyright © 2021 NAME HERE <EMAIL ADDRESS>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package cli
 
 import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
-	"github.com/tj/go-spin"
-	"github.com/youngnick/cfgmap/pkg/logger"
-	"github.com/youngnick/cfgmap/pkg/plugin"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
+
+var cfgFile string
 
 var (
 	KubernetesConfigFlags *genericclioptions.ConfigFlags
 )
 
-func RootCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:           "cfgmap",
-		Short:         "",
-		Long:          `.`,
-		SilenceErrors: true,
-		SilenceUsage:  true,
-		PreRun: func(cmd *cobra.Command, args []string) {
-			viper.BindPFlags(cmd.Flags())
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			log := logger.NewLogger()
-			log.Info("")
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
+	Use:   "cfgmap",
+	Short: "A brief description of your application",
+	Long: `A longer description that spans multiple lines and likely contains
+examples and usage of using your application. For example:
 
-			s := spin.New()
-			finishedCh := make(chan bool, 1)
-			namespaceName := make(chan string, 1)
-			go func() {
-				lastNamespaceName := ""
-				for {
-					select {
-					case <-finishedCh:
-						fmt.Printf("\r")
-						return
-					case n := <-namespaceName:
-						lastNamespaceName = n
-					case <-time.After(time.Millisecond * 100):
-						if lastNamespaceName == "" {
-							fmt.Printf("\r  \033[36mSearching for namespaces\033[m %s", s.Next())
-						} else {
-							fmt.Printf("\r  \033[36mSearching for namespaces\033[m %s (%s)", s.Next(), lastNamespaceName)
-						}
-					}
-				}
-			}()
-			defer func() {
-				finishedCh <- true
-			}()
+Cobra is a CLI library for Go that empowers applications.
+This application is a tool to generate the needed files
+to quickly create a Cobra application.`,
+	// Uncomment the following line if your bare application
+	// has an action associated with it:
+	// Run: func(cmd *cobra.Command, args []string) { },
+}
 
-			if err := plugin.RunPlugin(KubernetesConfigFlags, namespaceName); err != nil {
-				return errors.Cause(err)
-			}
+// Execute adds all child commands to the root command and sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
+func Execute() {
+	cobra.CheckErr(rootCmd.Execute())
+}
 
-			log.Info("")
-
-			return nil
-		},
-	}
-
+func init() {
 	cobra.OnInitialize(initConfig)
 
-	KubernetesConfigFlags = genericclioptions.NewConfigFlags(false)
-	KubernetesConfigFlags.AddFlags(cmd.Flags())
+	KubernetesConfigFlags = genericclioptions.NewConfigFlags(true)
+	KubernetesConfigFlags.AddFlags(rootCmd.PersistentFlags())
 
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	return cmd
+	// Here you will define your flags and configuration settings.
+	// Cobra supports persistent flags, which, if defined here,
+	// will be global for your application.
+
+	// Cobra also supports local flags, which will only run
+	// when this action is called directly.
+
 }
 
-func InitAndExecute() {
-	if err := RootCmd().Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
-
+// initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	viper.AutomaticEnv()
+	if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Find home directory.
+		home, err := homedir.Dir()
+		cobra.CheckErr(err)
+
+		// Search config in home directory with name ".cfgmap" (without extension).
+		viper.AddConfigPath(home)
+		viper.SetConfigName(".cfgmap")
+	}
+
+	viper.AutomaticEnv() // read in environment variables that match
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+	}
 }

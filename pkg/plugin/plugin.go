@@ -26,7 +26,15 @@ func RunPlugin(configFlags *genericclioptions.ConfigFlags, outputCh chan string)
 	}
 
 	for _, namespace := range namespaces.Items {
-		outputCh <- fmt.Sprintf("Namespace %s", namespace.Name)
+		configmaps, err := clientset.CoreV1().ConfigMaps(namespace.Name).List(metav1.ListOptions{})
+		if err != nil {
+			return errors.Wrap(err, "failed to list namespaces")
+		}
+
+		for _, configmap := range configmaps.Items {
+			outputCh <- fmt.Sprintf("Namespace %s, Configmap %s", namespace.Name, configmap.Name)
+		}
+
 	}
 
 	return nil
