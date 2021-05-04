@@ -1,7 +1,7 @@
 apiVersion: krew.googlecontainertools.github.com/v1alpha2
 kind: Plugin
 metadata:
-  name: dirdump
+  name: directory
 spec:
   version: "v0.1.0"
   platforms:
@@ -9,47 +9,47 @@ spec:
       matchLabels:
         os: linux
         arch: amd64
-    uri: https://github.com/youngnick/dirdump/releases/download/v0.1.0/dirdump_linux_amd64.tar.gz
+    uri: https://github.com/youngnick/directory/releases/download/v0.1.0/directory_linux_amd64.tar.gz
     sha256: ""
     files:
-    - from: "./dirdump"
+    - from: "./directory"
       to: "."
     - from: LICENSE
       to: "."
-    bin: "dirdump"
+    bin: "directory"
   - selector:
       matchLabels:
         os: darwin
         arch: amd64
-    uri: https://github.com/youngnick/dirdump/releases/download/v0.1.0/dirdump_darwin_amd64.tar.gz
+    uri: https://github.com/youngnick/directory/releases/download/v0.1.0/directory_darwin_amd64.tar.gz
     sha256: ""
     files:
-    - from: "./dirdump"
+    - from: "./directory"
       to: "."
     - from: LICENSE
       to: "."
-    bin: "dirdump"
+    bin: "directory"
   - selector:
       matchLabels:
         os: windows
         arch: amd64
-    uri: https://github.com/youngnick/dirdump/releases/download/v0.1.0/dirdump_windows_amd64.zip
+    uri: https://github.com/youngnick/directory/releases/download/v0.1.0/directory_windows_amd64.zip
     sha256: ""
     files:
-    - from: "/dirdump.exe"
+    - from: "/directory.exe"
       to: "."
     - from: LICENSE
       to: "."
-    bin: "dirdump.exe"
+    bin: "directory.exe"
   shortDescription: A new plugin
-  homepage: https://github.com/youngnick/dirdump
+  homepage: https://github.com/youngnick/directory
   caveats: |
     Usage:
-      $ kubectl dirdump
+      $ kubectl directory
 
     For additional options:
-      $ kubectl dirdump --help
-      or https://github.com/youngnick/dirdump/blob/v0.1.0/doc/USAGE.md
+      $ kubectl directory --help
+      or https://github.com/youngnick/directory/blob/v0.1.0/doc/USAGE.md
 
   description: |
     This is a new plugin

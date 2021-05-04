@@ -1,11 +1,11 @@
-# dirdump kubectl
+# directory kubectl
 
 A `kubectl` plugin to ...
 
 ## Quick Start
 
 ```
-kubectl krew install dirdump
-kubectl dirdump
+kubectl krew install directory
+kubectl directory
 ```
 

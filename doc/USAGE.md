@@ -3,19 +3,19 @@
 The following assumes you have the plugin installed via
 
 ```shell
-kubectl krew install dirdump
+kubectl krew install directory
 ```
 
 ### Scan images in your current kubecontext
 
 ```shell
-kubectl dirdump
+kubectl directory
 ```
 
 ### Scan images in another kubecontext
 
 ```shell
-kubectl dirdump --context=context-name
+kubectl directory --context=context-name
 ```
 
 ## How it works

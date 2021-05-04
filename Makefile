@@ -8,11 +8,11 @@ test:
 
 .PHONY: bin
 bin: fmt vet
-	go build -o bin/kubectl-dirdump github.com/youngnick/dirdump/cmd/kubectl-dirdump
+	go build -o bin/kubectl-directory github.com/youngnick/directory/cmd/kubectl-directory
 
 .PHONY: install
 install: fmt vet
-	go install github.com/youngnick/dirdump/cmd/kubectl-dirdump
+	go install github.com/youngnick/directory/cmd/kubectl-directory
 
 .PHONY: fmt
 fmt:

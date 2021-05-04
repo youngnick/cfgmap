@@ -1,4 +1,4 @@
-module github.com/youngnick/dirdump
+module github.com/youngnick/directory
 
 go 1.16
 

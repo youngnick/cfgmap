@@ -48,7 +48,7 @@ func NewRootCmd(ctx context.Context, in io.Reader, out io.Writer, err io.Writer)
 
 	// rootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
-		Use:   "dirdump",
+		Use:   "directory",
 		Short: "A brief description of your application",
 		Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
@@ -87,9 +87,9 @@ func initConfig() {
 		home, err := homedir.Dir()
 		cobra.CheckErr(err)
 
-		// Search config in home directory with name ".dirdump" (without extension).
+		// Search config in home directory with name ".directory" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".dirdump")
+		viper.SetConfigName(".directory")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

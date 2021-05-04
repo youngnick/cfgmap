@@ -1,10 +1,10 @@
-project_name: dirdump
+project_name: directory
 release:
   github:
     owner: youngnick
-    name: dirdump
+    name: directory
 builds:
-  - id: dirdump
+  - id: directory
     goos:
     - linux
     - windows
@@ -17,11 +17,11 @@ builds:
       - GO111MODULE=on
     main: cmd/plugin/main.go
     ldflags: -s -w
-      -X github.com/youngnick/dirdump/pkg/version.version=
+      -X github.com/youngnick/directory/pkg/version.version=
 archives:
-  - id: dirdump
+  - id: directory
     builds:
-    - dirdump
+    - directory
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
     - goos: windows
