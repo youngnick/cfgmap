@@ -3,19 +3,19 @@
 The following assumes you have the plugin installed via
 
 ```shell
-kubectl krew install cfgmap
+kubectl krew install dirdump
 ```
 
 ### Scan images in your current kubecontext
 
 ```shell
-kubectl cfgmap
+kubectl dirdump
 ```
 
 ### Scan images in another kubecontext
 
 ```shell
-kubectl cfgmap --context=context-name
+kubectl dirdump --context=context-name
 ```
 
 ## How it works

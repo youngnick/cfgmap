@@ -7,7 +7,7 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
-	"github.com/youngnick/cfgmap/cmd/kubectl-cfgmap/cli"
+	"github.com/youngnick/dirdump/cmd/kubectl-dirdump/cli"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // required for GKE
 )
 

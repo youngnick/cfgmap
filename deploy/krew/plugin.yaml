@@ -1,7 +1,7 @@
 apiVersion: krew.googlecontainertools.github.com/v1alpha2
 kind: Plugin
 metadata:
-  name: cfgmap
+  name: dirdump
 spec:
   version: "v0.1.0"
   platforms:
@@ -9,47 +9,47 @@ spec:
       matchLabels:
         os: linux
         arch: amd64
-    uri: https://github.com/youngnick/cfgmap/releases/download/v0.1.0/cfgmap_linux_amd64.tar.gz
+    uri: https://github.com/youngnick/dirdump/releases/download/v0.1.0/dirdump_linux_amd64.tar.gz
     sha256: ""
     files:
-    - from: "./cfgmap"
+    - from: "./dirdump"
       to: "."
     - from: LICENSE
       to: "."
-    bin: "cfgmap"
+    bin: "dirdump"
   - selector:
       matchLabels:
         os: darwin
         arch: amd64
-    uri: https://github.com/youngnick/cfgmap/releases/download/v0.1.0/cfgmap_darwin_amd64.tar.gz
+    uri: https://github.com/youngnick/dirdump/releases/download/v0.1.0/dirdump_darwin_amd64.tar.gz
     sha256: ""
     files:
-    - from: "./cfgmap"
+    - from: "./dirdump"
       to: "."
     - from: LICENSE
       to: "."
-    bin: "cfgmap"
+    bin: "dirdump"
   - selector:
       matchLabels:
         os: windows
         arch: amd64
-    uri: https://github.com/youngnick/cfgmap/releases/download/v0.1.0/cfgmap_windows_amd64.zip
+    uri: https://github.com/youngnick/dirdump/releases/download/v0.1.0/dirdump_windows_amd64.zip
     sha256: ""
     files:
-    - from: "/cfgmap.exe"
+    - from: "/dirdump.exe"
       to: "."
     - from: LICENSE
       to: "."
-    bin: "cfgmap.exe"
+    bin: "dirdump.exe"
   shortDescription: A new plugin
-  homepage: https://github.com/youngnick/cfgmap
+  homepage: https://github.com/youngnick/dirdump
   caveats: |
     Usage:
-      $ kubectl cfgmap
+      $ kubectl dirdump
 
     For additional options:
-      $ kubectl cfgmap --help
-      or https://github.com/youngnick/cfgmap/blob/v0.1.0/doc/USAGE.md
+      $ kubectl dirdump --help
+      or https://github.com/youngnick/dirdump/blob/v0.1.0/doc/USAGE.md
 
   description: |
     This is a new plugin

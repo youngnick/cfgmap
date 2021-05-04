@@ -1,10 +1,10 @@
-project_name: cfgmap
+project_name: dirdump
 release:
   github:
     owner: youngnick
-    name: cfgmap
+    name: dirdump
 builds:
-  - id: cfgmap
+  - id: dirdump
     goos:
     - linux
     - windows
@@ -17,11 +17,11 @@ builds:
       - GO111MODULE=on
     main: cmd/plugin/main.go
     ldflags: -s -w
-      -X github.com/youngnick/cfgmap/pkg/version.version=
+      -X github.com/youngnick/dirdump/pkg/version.version=
 archives:
-  - id: cfgmap
+  - id: dirdump
     builds:
-    - cfgmap
+    - dirdump
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
     - goos: windows

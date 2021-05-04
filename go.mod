@@ -1,4 +1,4 @@
-module github.com/youngnick/cfgmap
+module github.com/youngnick/dirdump
 
 go 1.16
 
