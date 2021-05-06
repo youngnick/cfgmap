@@ -8,11 +8,13 @@ test:
 
 .PHONY: bin
 bin: fmt vet
-	go build -o bin/kubectl-directory github.com/youngnick/directory/cmd/kubectl-directory
+	go build -o bin/kubectl-dump github.com/youngnick/kubectl-directory-output/cmd/kubectl-dump
+	go build -o bin/kubectl-load github.com/youngnick/kubectl-directory-output/cmd/kubectl-load
 
 .PHONY: install
 install: fmt vet
-	go install github.com/youngnick/directory/cmd/kubectl-directory
+	go install github.com/youngnick/kubectl-directory-output/cmd/kubectl-dump
+	go install github.com/youngnick/kubectl-directory-output/cmd/kubectl-load
 
 .PHONY: fmt
 fmt:

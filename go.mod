@@ -1,4 +1,4 @@
-module github.com/youngnick/directory
+module github.com/youngnick/kubectl-directory-output
 
 go 1.16
 
