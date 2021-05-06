@@ -10,6 +10,7 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -57,6 +58,13 @@ type Options struct {
 	Directory string
 
 	Data map[string][]byte
+
+	MetaData MetaData
+}
+
+type MetaData struct {
+	Annotations map[string]string `yaml:"annotations"`
+	Labels      map[string]string `yaml:"labels"`
 }
 
 func (o *Options) Setup(f cmdutil.Factory) error {
@@ -114,12 +122,29 @@ func (o *Options) SetData(data interface{}) error {
 	default:
 		return fmt.Errorf("Can't handle object of type %T", data)
 	}
+
+	// Delete the last-applied configuration, because the apiserver manages that for you.
+	// Also, it can get pretty big.
+	delete(o.MetaData.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
+
 	return nil
 }
 func (o *Options) WriteData() error {
 	err := o.EnsureDirectory()
 	if err != nil {
 		return err
+	}
+
+	metadataFile, err := yaml.Marshal(o.MetaData)
+	if err != nil {
+		return err
+	}
+
+	if len(metadataFile) > 0 {
+		err = ioutil.WriteFile(filepath.Join(o.Directory, ".METADATA"), metadataFile, 0644)
+		if err != nil {
+			return err
+		}
 	}
 
 	for key, value := range o.Data {

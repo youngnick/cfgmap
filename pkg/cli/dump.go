@@ -79,6 +79,9 @@ func newDumpConfigMapCommand(ctx context.Context, ioStreams genericclioptions.IO
 			configmap, err := o.clientset.CoreV1().ConfigMaps(o.namespace).Get(ctx, name, metav1.GetOptions{})
 			cobra.CheckErr(err)
 
+			o.MetaData.Annotations = configmap.GetObjectMeta().GetAnnotations()
+			o.MetaData.Labels = configmap.GetObjectMeta().GetLabels()
+
 			// Set up the base directory layout
 			configuredOutputDir, err := cmd.Flags().GetString("outputdir")
 			cobra.CheckErr(err)
@@ -124,6 +127,9 @@ func newDumpSecretCommand(ctx context.Context, ioStreams genericclioptions.IOStr
 			name := args[0]
 			secret, err := o.clientset.CoreV1().Secrets(o.namespace).Get(ctx, name, metav1.GetOptions{})
 			cobra.CheckErr(err)
+
+			o.MetaData.Annotations = secret.GetObjectMeta().GetAnnotations()
+			o.MetaData.Labels = secret.GetObjectMeta().GetLabels()
 
 			// Set up the base directory layout
 			configuredOutputDir, err := cmd.Flags().GetString("outputdir")
