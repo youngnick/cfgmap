@@ -17,18 +17,12 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/kubernetes"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
@@ -54,8 +48,8 @@ func NewLoadCmd(ctx context.Context, in io.Reader, out io.Writer, err io.Writer)
 	factory := cmdutil.NewFactory(KubernetesConfigFlags)
 	ioStreams := genericclioptions.IOStreams{In: in, Out: out, ErrOut: err}
 
-	loadCmd.PersistentFlags().String("basedir", ".", "Set the base directory to start looking for the configmap directory.")
-	loadCmd.PersistentFlags().String("outputdir", "", "If supplied, overrides the default directory structure and puts all generated files in the specified directory.")
+	loadCmd.PersistentFlags().String("basedir", ".", "Set the base directory for the default search path, <basedir>/<object>/<namespace>/<name>.")
+	loadCmd.PersistentFlags().String("inputdir", "", "If supplied, overrides the default search path and loads all files from the specified directory.")
 	loadCmd.AddCommand(newLoadConfigMapCommand(ctx, ioStreams, factory))
 	loadCmd.AddCommand(newLoadSecretCommand(ctx, ioStreams, factory))
 	return loadCmd
@@ -63,50 +57,46 @@ func NewLoadCmd(ctx context.Context, in io.Reader, out io.Writer, err io.Writer)
 
 func newLoadConfigMapCommand(ctx context.Context, ioStreams genericclioptions.IOStreams, f cmdutil.Factory) *cobra.Command {
 
+	o := Options{
+		IOStreams: ioStreams,
+	}
+
 	var configMapCmd = &cobra.Command{
-		Use:   "configmap",
-		Short: "Load the contents of a ConfigMap to a directory as separate files.",
-		Long: `This application is a tool to dump the contents of a ConfigMap
-		to a directory as separate files.
+		Use:   "configmap <name>",
+		Short: "Load the contents of a ConfigMap from a directory as separate files.",
+		Long: `This application is a tool to load the contents of a ConfigMap
+		from a directory containing files, the names of which will be used as the keys.
+
+		Labels and annotations may be read from a .metadat.yaml file in the source directory.
 		
-		The directory will be created as <basedir>/configmaps/<namespace>/<name>, with the
-		keys as the filenames.`,
+		The default source directory is <basedir>/configmaps/<namespace>/<name>, with the
+		keys as the filenames.
+		
+		This behavior can be overridden with the --inputDir flag.`,
+		Args: o.ValidateArguments,
 		Run: func(cmd *cobra.Command, args []string) {
-			config, err := f.ToRESTConfig()
+			err := o.Setup(f)
 			cobra.CheckErr(err)
 
-			clientset, err := kubernetes.NewForConfig(config)
+			inputDir, err := cmd.Flags().GetString("inputdir")
 			cobra.CheckErr(err)
-
-			namespace, _, err := f.ToRawKubeConfigLoader().Namespace()
-			cobra.CheckErr(err)
-			name := args[0]
-			configmap, err := clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
-			cobra.CheckErr(err)
-
-			basedir, err := cmd.Flags().GetString("basedir")
-			cobra.CheckErr(err)
-
-			// Set up the base directory layout
-			outputDir := filepath.Join(basedir, "configmaps", namespace, name)
-			configuredOutputDir, err := cmd.Flags().GetString("outputdir")
-			cobra.CheckErr(err)
-			if configuredOutputDir != "" {
-				outputDir = configuredOutputDir
-			}
-			fmt.Fprintf(ioStreams.Out, "Using directory %s\n", outputDir)
-			errMkdir := os.MkdirAll(outputDir, 0777)
-			cobra.CheckErr(errMkdir)
-
-			for key, value := range configmap.Data {
-				fmt.Fprintf(ioStreams.Out, "Creating %s...", key)
-
-				filename := filepath.Join(outputDir, key)
-
-				err := ioutil.WriteFile(filename, []byte(value), 0644)
+			if inputDir != "" {
+				o.SetDirectory(inputDir)
+			} else {
+				basedir, err := cmd.Flags().GetString("basedir")
 				cobra.CheckErr(err)
-				fmt.Fprint(ioStreams.Out, "Done\n")
+
+				o.SetDirectory(basedir, "configmaps", o.Namespace, o.Name)
 			}
+			err = o.ReadData()
+			cobra.CheckErr(err)
+			configmap := o.GetConfigMap()
+
+			o.Printer, err = genericclioptions.NewJSONYamlPrintFlags().ToPrinter("yaml")
+			cobra.CheckErr(err)
+
+			err = o.Printer.PrintObj(configmap, o.Out)
+			cobra.CheckErr(err)
 
 		},
 	}
@@ -116,51 +106,47 @@ func newLoadConfigMapCommand(ctx context.Context, ioStreams genericclioptions.IO
 
 func newLoadSecretCommand(ctx context.Context, ioStreams genericclioptions.IOStreams, f cmdutil.Factory) *cobra.Command {
 
+	o := Options{
+		IOStreams: ioStreams,
+	}
+
 	var secretCmd = &cobra.Command{
-		Use:   "secret",
+		Use:   "secret <name>",
 		Short: "Load the contents of a Secret to a directory as separate files, decoding them on the way.",
 		Long: `This application is a tool to dump the contents of a Secret
-		to a directory as separate files, decoding them on the way.
+		from a directory containing files, the names of which will be used as the keys.
+
+		Labels and annotations may be read from a .metadata.yaml file in the source directory.
 		
-		By default, the directory will be created as <basedir>/secrets/<namespace>/<name>, with the
-		keys as the filenames. This can be overridden with --outputdir.`,
+		The default source directory is <basedir>/secrets/<namespace>/<name>, with the
+		keys as the filenames.
+		
+		This behavior can be overridden with the --inputdir flag.`,
+		Args: o.ValidateArguments,
 		Run: func(cmd *cobra.Command, args []string) {
-			config, err := f.ToRESTConfig()
+			err := o.Setup(f)
 			cobra.CheckErr(err)
 
-			clientset, err := kubernetes.NewForConfig(config)
+			inputDir, err := cmd.Flags().GetString("inputdir")
 			cobra.CheckErr(err)
-
-			namespace, _, err := f.ToRawKubeConfigLoader().Namespace()
-			cobra.CheckErr(err)
-			name := args[0]
-			secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
-			cobra.CheckErr(err)
-
-			basedir, err := cmd.Flags().GetString("basedir")
-			cobra.CheckErr(err)
-
-			// Set up the base directory layout
-			outputDir := filepath.Join(basedir, "secrets", namespace, name)
-			configuredOutputDir, err := cmd.Flags().GetString("outputdir")
-			cobra.CheckErr(err)
-			if configuredOutputDir != "" {
-				outputDir = configuredOutputDir
-			}
-			fmt.Fprintf(ioStreams.Out, "Using directory %s\n", outputDir)
-			errMkdir := os.MkdirAll(outputDir, 0777)
-			cobra.CheckErr(errMkdir)
-
-			for key, value := range secret.Data {
-				fmt.Fprintf(ioStreams.Out, "Creating %s...", key)
-
-				filename := filepath.Join(outputDir, key)
-
-				err := ioutil.WriteFile(filename, []byte(value), 0644)
+			if inputDir != "" {
+				o.SetDirectory(inputDir)
+			} else {
+				basedir, err := cmd.Flags().GetString("basedir")
 				cobra.CheckErr(err)
-				fmt.Fprint(ioStreams.Out, "Done\n")
+
+				o.SetDirectory(basedir, "secrets", o.Namespace, o.Name)
 			}
 
+			err = o.ReadData()
+			cobra.CheckErr(err)
+			secret := o.GetSecret()
+
+			o.Printer, err = genericclioptions.NewJSONYamlPrintFlags().ToPrinter("yaml")
+			cobra.CheckErr(err)
+
+			err = o.Printer.PrintObj(secret, o.Out)
+			cobra.CheckErr(err)
 		},
 	}
 

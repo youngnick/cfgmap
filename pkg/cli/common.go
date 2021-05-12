@@ -11,7 +11,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
@@ -53,20 +56,24 @@ type Options struct {
 
 	clientset *kubernetes.Clientset
 
-	namespace string
+	Name      string
+	Namespace string
 
 	Directory string
 
 	Data map[string][]byte
 
 	MetaData MetaData
+
+	Printer printers.ResourcePrinter
 }
 
 type MetaData struct {
-	Annotations map[string]string `yaml:"annotations"`
-	Labels      map[string]string `yaml:"labels"`
+	Annotations map[string]string `yaml:"annotations,omitempty"`
+	Labels      map[string]string `yaml:"labels,omitempty"`
 }
 
+// Setup initialises the RestConfig, Clientset, and namespace fields.
 func (o *Options) Setup(f cmdutil.Factory) error {
 
 	config, err := f.ToRESTConfig()
@@ -83,12 +90,13 @@ func (o *Options) Setup(f cmdutil.Factory) error {
 
 	o.clientset = clientset
 
-	namespace, _, err := f.ToRawKubeConfigLoader().Namespace()
-	if err != nil {
-		return err
+	if o.Namespace == "" {
+		namespace, _, err := f.ToRawKubeConfigLoader().Namespace()
+		if err != nil {
+			return err
+		}
+		o.Namespace = namespace
 	}
-
-	o.namespace = namespace
 
 	return nil
 }
@@ -129,6 +137,7 @@ func (o *Options) SetData(data interface{}) error {
 
 	return nil
 }
+
 func (o *Options) WriteData() error {
 	err := o.EnsureDirectory()
 	if err != nil {
@@ -141,7 +150,7 @@ func (o *Options) WriteData() error {
 	}
 
 	if len(metadataFile) > 0 {
-		err = ioutil.WriteFile(filepath.Join(o.Directory, ".METADATA"), metadataFile, 0644)
+		err = ioutil.WriteFile(filepath.Join(o.Directory, ".metadata.yaml"), metadataFile, 0644)
 		if err != nil {
 			return err
 		}
@@ -158,6 +167,89 @@ func (o *Options) WriteData() error {
 		}
 		fmt.Fprint(o.IOStreams.Out, "Done\n")
 	}
+
+	return nil
+}
+
+func (o *Options) ReadData() error {
+
+	files, err := os.ReadDir(o.Directory)
+	if err != nil {
+		return err
+	}
+
+	o.Data = make(map[string][]byte)
+
+	for _, file := range files {
+
+		filename := file.Name()
+		rawData, err := os.ReadFile(filepath.Join(o.Directory, filename))
+		if err != nil {
+			return err
+		}
+		if filename == ".metadata.yaml" {
+			err = yaml.Unmarshal(rawData, &o.MetaData)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+
+		o.Data[filename] = rawData
+
+	}
+	return nil
+}
+
+func (o *Options) GetSecret() *v1.Secret {
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        o.Name,
+			Namespace:   o.Namespace,
+			Annotations: o.MetaData.Annotations,
+			Labels:      o.MetaData.Labels,
+		},
+		Data: o.Data,
+	}
+
+	secret.SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("Secret"))
+	return secret
+}
+
+func (o *Options) GetConfigMap() *v1.ConfigMap {
+
+	data := make(map[string]string)
+
+	for key, value := range o.Data {
+		data[key] = string(value)
+	}
+
+	cfgmap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        o.Name,
+			Namespace:   o.Namespace,
+			Annotations: o.MetaData.Annotations,
+			Labels:      o.MetaData.Labels,
+		},
+		Data: data,
+	}
+	cfgmap.SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("ConfigMap"))
+
+	return cfgmap
+}
+
+func (o *Options) ValidateArguments(cmd *cobra.Command, args []string) error {
+
+	if len(args) > 1 {
+		return errors.New("Only name is used")
+	}
+
+	if len(args) < 1 {
+		return errors.New("Name is required")
+	}
+
+	o.Name = args[0]
 
 	return nil
 }

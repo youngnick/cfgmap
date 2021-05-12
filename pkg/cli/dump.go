@@ -64,19 +64,21 @@ func newDumpConfigMapCommand(ctx context.Context, ioStreams genericclioptions.IO
 	}
 
 	var configMapCmd = &cobra.Command{
-		Use:   "configmap",
+		Use:   "configmap <name>",
 		Short: "Dump the contents of a ConfigMap to a directory as separate files.",
 		Long: `This application is a tool to dump the contents of a ConfigMap
 		to a directory as separate files.
+
+		Labels and annotations will be saved in a .metadata.yaml file in the same directory.
 		
 		The directory will be created as <basedir>/configmaps/<namespace>/<name>, with the
 		keys as the filenames.`,
+		Args: o.ValidateArguments,
 		Run: func(cmd *cobra.Command, args []string) {
 			err := o.Setup(f)
 			cobra.CheckErr(err)
 
-			name := args[0]
-			configmap, err := o.clientset.CoreV1().ConfigMaps(o.namespace).Get(ctx, name, metav1.GetOptions{})
+			configmap, err := o.clientset.CoreV1().ConfigMaps(o.Namespace).Get(ctx, o.Name, metav1.GetOptions{})
 			cobra.CheckErr(err)
 
 			o.MetaData.Annotations = configmap.GetObjectMeta().GetAnnotations()
@@ -90,7 +92,7 @@ func newDumpConfigMapCommand(ctx context.Context, ioStreams genericclioptions.IO
 			} else {
 				basedir, err := cmd.Flags().GetString("basedir")
 				cobra.CheckErr(err)
-				o.SetDirectory(basedir, "configmaps", o.namespace, name)
+				o.SetDirectory(basedir, "configmaps", o.Namespace, o.Name)
 
 			}
 
@@ -113,19 +115,21 @@ func newDumpSecretCommand(ctx context.Context, ioStreams genericclioptions.IOStr
 	}
 
 	var secretCmd = &cobra.Command{
-		Use:   "secret",
+		Use:   "secret <name>",
 		Short: "Dump the contents of a Secret to a directory as separate files, decoding them on the way.",
 		Long: `This application is a tool to dump the contents of a Secret
 		to a directory as separate files, decoding them on the way.
+
+		Labels and annotations will be saved in a .metadata.yaml file in the same directory.
 		
 		By default, the directory will be created as <basedir>/secrets/<namespace>/<name>, with the
 		keys as the filenames. This can be overridden with --outputdir.`,
+		Args: o.ValidateArguments,
 		Run: func(cmd *cobra.Command, args []string) {
 			err := o.Setup(f)
 			cobra.CheckErr(err)
 
-			name := args[0]
-			secret, err := o.clientset.CoreV1().Secrets(o.namespace).Get(ctx, name, metav1.GetOptions{})
+			secret, err := o.clientset.CoreV1().Secrets(o.Namespace).Get(ctx, o.Name, metav1.GetOptions{})
 			cobra.CheckErr(err)
 
 			o.MetaData.Annotations = secret.GetObjectMeta().GetAnnotations()
@@ -139,7 +143,7 @@ func newDumpSecretCommand(ctx context.Context, ioStreams genericclioptions.IOStr
 			} else {
 				basedir, err := cmd.Flags().GetString("basedir")
 				cobra.CheckErr(err)
-				o.SetDirectory(basedir, "secrets", o.namespace, name)
+				o.SetDirectory(basedir, "secrets", o.Namespace, o.Name)
 			}
 
 			cobra.CheckErr(o.SetData(secret.Data))
