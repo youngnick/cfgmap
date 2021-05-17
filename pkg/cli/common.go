@@ -59,6 +59,9 @@ type Options struct {
 	Name      string
 	Namespace string
 
+	// Kind is the kind of object we are operating on.
+	Kind string
+
 	Directory string
 
 	Data map[string][]byte
@@ -73,7 +76,7 @@ type MetaData struct {
 	Labels      map[string]string `yaml:"labels,omitempty"`
 }
 
-// Setup initialises the RestConfig, Clientset, and namespace fields.
+// Setup initialises the RestConfig, Clientset, and Namespace fields.
 func (o *Options) Setup(f cmdutil.Factory) error {
 
 	config, err := f.ToRESTConfig()
@@ -239,6 +242,9 @@ func (o *Options) GetConfigMap() *v1.ConfigMap {
 	return cfgmap
 }
 
+// ValidateArguments validates the arguments passed to a command.
+// It meets the requirements for the cobra.Command Args field, so it can be
+// passed in directly. Note that all the commands here take the same argument set.
 func (o *Options) ValidateArguments(cmd *cobra.Command, args []string) error {
 
 	if len(args) > 1 {
@@ -250,6 +256,37 @@ func (o *Options) ValidateArguments(cmd *cobra.Command, args []string) error {
 	}
 
 	o.Name = args[0]
+
+	return nil
+}
+
+// ValidateArguments validates the arguments passed to a command.
+// It meets the requirements for the cobra.Command Args field, so it can be
+// passed in directly. Note that all the commands here take the same argument set.
+func (o *Options) ValidateArgumentsRoot(cmd *cobra.Command, args []string) error {
+
+	if len(args) > 2 {
+		return errors.New("Only Type and Name are required.")
+	}
+
+	if len(args) == 0 {
+		return errors.New("Type and Name are required.")
+	}
+
+	objType := args[0]
+
+	// Plurals are expected in o.Kind
+	switch objType {
+	case "configmap":
+	case "cm":
+		o.Kind = "configmaps"
+	case "secret":
+		o.Kind = "secrets"
+	default:
+		return fmt.Errorf("Don't know how to dump a %s object", objType)
+	}
+
+	o.Name = args[1]
 
 	return nil
 }

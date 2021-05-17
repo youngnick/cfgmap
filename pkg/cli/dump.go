@@ -26,134 +26,100 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+	"k8s.io/kubectl/pkg/util/templates"
+)
+
+var (
+	dumpLong = templates.LongDesc(`
+		A kubectl plugin to to dump the contents of a either a ConfigMap
+		or Secret to a directory as separate files.
+		
+		Labels and annotations will be saved in a .metadata.yaml file in the same directory.
+				
+		The directory will be created as <basedir>/<kind>/<namespace>/<name>, with the
+		keys as the filenames. This can be overridden with the --outputdir flag.`)
+
+	dumpExample = templates.Examples(`
+		# Export the test configmap from the current namespace
+		# to ./configmaps/namespace/test
+		%[1]s dump configmap test
+		
+		# Export the test secret from the current namespace
+		# to ./secrets/namespace/test
+		%[1]s dump secret test
+
+		# Export the test secret from the test namespace
+		# to the default path
+		%[1]s dump secret test -n test
+
+		# Export the test secret to ./testsecret
+		%[1]s dump secret test --outputdir testsecret
+		`)
+
+	parent = "kubectl"
 )
 
 func NewDumpCmd(ctx context.Context, in io.Reader, out io.Writer, err io.Writer) *cobra.Command {
 
-	// dumpCmd represents the dump command
-	var dumpCmd = &cobra.Command{
-		Use:   "dump",
-		Short: "Dump the contents of objects to a directory as separate files.",
-		Long: `This command lets you dump the contents of ConfigMaps or Secrets
-		to a directory as separate files.`,
-		// Run: func(cmd *cobra.Command, args []string) {}
-
-	}
-
 	cobra.OnInitialize(initConfig)
 
 	KubernetesConfigFlags = genericclioptions.NewConfigFlags(false)
-	KubernetesConfigFlags.AddFlags(dumpCmd.PersistentFlags())
 
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	factory := cmdutil.NewFactory(KubernetesConfigFlags)
 	ioStreams := genericclioptions.IOStreams{In: in, Out: out, ErrOut: err}
+	o := Options{
+		IOStreams: ioStreams,
+	}
 
+	// dumpCmd represents the dump command
+	var dumpCmd = &cobra.Command{
+		Use:     fmt.Sprintf("%s dump secret|configmap name", parent),
+		Short:   "Dump the contents of an object to a directory as separate files.",
+		Long:    fmt.Sprintf(dumpLong, parent),
+		Example: fmt.Sprintf(dumpExample, parent),
+		Args:    o.ValidateArgumentsRoot,
+		Run: func(cmd *cobra.Command, args []string) {
+			err := o.Setup(factory)
+			cobra.CheckErr(err)
+
+			switch o.Kind {
+			case "configmap":
+				configmap, err := o.clientset.CoreV1().ConfigMaps(o.Namespace).Get(ctx, o.Name, metav1.GetOptions{})
+				cobra.CheckErr(err)
+				cobra.CheckErr(o.SetData(configmap.Data))
+				o.MetaData.Annotations = configmap.GetObjectMeta().GetAnnotations()
+				o.MetaData.Labels = configmap.GetObjectMeta().GetLabels()
+			case "secret":
+				secret, err := o.clientset.CoreV1().Secrets(o.Namespace).Get(ctx, o.Name, metav1.GetOptions{})
+				cobra.CheckErr(err)
+				cobra.CheckErr(o.SetData(secret.Data))
+				o.MetaData.Annotations = secret.GetObjectMeta().GetAnnotations()
+				o.MetaData.Labels = secret.GetObjectMeta().GetLabels()
+			}
+
+			// Set up the base directory layout
+			configuredOutputDir, err := cmd.Flags().GetString("outputdir")
+			cobra.CheckErr(err)
+			if configuredOutputDir != "" {
+				o.SetDirectory(configuredOutputDir)
+			} else {
+				basedir, err := cmd.Flags().GetString("basedir")
+				cobra.CheckErr(err)
+				o.SetDirectory(basedir, o.Kind, o.Namespace, o.Name)
+
+			}
+
+			fmt.Fprintf(ioStreams.Out, "Using directory %s\n", o.Directory)
+
+			cobra.CheckErr(o.WriteData())
+
+		},
+	}
+
+	KubernetesConfigFlags.AddFlags(dumpCmd.PersistentFlags())
 	dumpCmd.PersistentFlags().String("basedir", ".", "Set the base directory for the configmap directory to be created in.")
 	dumpCmd.PersistentFlags().String("outputdir", "", "If supplied, overrides the default directory structure and puts all generated files in the specified directory.")
-	dumpCmd.AddCommand(newDumpConfigMapCommand(ctx, ioStreams, factory))
-	dumpCmd.AddCommand(newDumpSecretCommand(ctx, ioStreams, factory))
 	return dumpCmd
-}
-
-func newDumpConfigMapCommand(ctx context.Context, ioStreams genericclioptions.IOStreams, f cmdutil.Factory) *cobra.Command {
-
-	o := Options{
-		IOStreams: ioStreams,
-	}
-
-	var configMapCmd = &cobra.Command{
-		Use:   "configmap <name>",
-		Short: "Dump the contents of a ConfigMap to a directory as separate files.",
-		Long: `This application is a tool to dump the contents of a ConfigMap
-		to a directory as separate files.
-
-		Labels and annotations will be saved in a .metadata.yaml file in the same directory.
-		
-		The directory will be created as <basedir>/configmaps/<namespace>/<name>, with the
-		keys as the filenames.`,
-		Args: o.ValidateArguments,
-		Run: func(cmd *cobra.Command, args []string) {
-			err := o.Setup(f)
-			cobra.CheckErr(err)
-
-			configmap, err := o.clientset.CoreV1().ConfigMaps(o.Namespace).Get(ctx, o.Name, metav1.GetOptions{})
-			cobra.CheckErr(err)
-
-			o.MetaData.Annotations = configmap.GetObjectMeta().GetAnnotations()
-			o.MetaData.Labels = configmap.GetObjectMeta().GetLabels()
-
-			// Set up the base directory layout
-			configuredOutputDir, err := cmd.Flags().GetString("outputdir")
-			cobra.CheckErr(err)
-			if configuredOutputDir != "" {
-				o.SetDirectory(configuredOutputDir)
-			} else {
-				basedir, err := cmd.Flags().GetString("basedir")
-				cobra.CheckErr(err)
-				o.SetDirectory(basedir, "configmaps", o.Namespace, o.Name)
-
-			}
-
-			cobra.CheckErr(o.SetData(configmap.Data))
-
-			fmt.Fprintf(ioStreams.Out, "Using directory %s\n", o.Directory)
-
-			cobra.CheckErr(o.WriteData())
-
-		},
-	}
-
-	return configMapCmd
-}
-
-func newDumpSecretCommand(ctx context.Context, ioStreams genericclioptions.IOStreams, f cmdutil.Factory) *cobra.Command {
-
-	o := Options{
-		IOStreams: ioStreams,
-	}
-
-	var secretCmd = &cobra.Command{
-		Use:   "secret <name>",
-		Short: "Dump the contents of a Secret to a directory as separate files, decoding them on the way.",
-		Long: `This application is a tool to dump the contents of a Secret
-		to a directory as separate files, decoding them on the way.
-
-		Labels and annotations will be saved in a .metadata.yaml file in the same directory.
-		
-		By default, the directory will be created as <basedir>/secrets/<namespace>/<name>, with the
-		keys as the filenames. This can be overridden with --outputdir.`,
-		Args: o.ValidateArguments,
-		Run: func(cmd *cobra.Command, args []string) {
-			err := o.Setup(f)
-			cobra.CheckErr(err)
-
-			secret, err := o.clientset.CoreV1().Secrets(o.Namespace).Get(ctx, o.Name, metav1.GetOptions{})
-			cobra.CheckErr(err)
-
-			o.MetaData.Annotations = secret.GetObjectMeta().GetAnnotations()
-			o.MetaData.Labels = secret.GetObjectMeta().GetLabels()
-
-			// Set up the base directory layout
-			configuredOutputDir, err := cmd.Flags().GetString("outputdir")
-			cobra.CheckErr(err)
-			if configuredOutputDir != "" {
-				o.SetDirectory(configuredOutputDir)
-			} else {
-				basedir, err := cmd.Flags().GetString("basedir")
-				cobra.CheckErr(err)
-				o.SetDirectory(basedir, "secrets", o.Namespace, o.Name)
-			}
-
-			cobra.CheckErr(o.SetData(secret.Data))
-
-			fmt.Fprintf(ioStreams.Out, "Using directory %s\n", o.Directory)
-
-			cobra.CheckErr(o.WriteData())
-
-		},
-	}
-
-	return secretCmd
 }
