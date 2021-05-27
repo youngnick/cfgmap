@@ -17,138 +17,138 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+	"k8s.io/kubectl/pkg/util/templates"
+)
+
+var (
+	loadLong = templates.LongDesc(`
+		A kubectl plugin to to load the contents of a either a ConfigMap
+		or Secret from a directory of separate files.
+		
+		Labels and annotations will be loaded from a .metadata.yaml file in the same
+		directory, if it exists.
+				
+		The default search path is (basedir)/(kind)/(namespace)/(name), and the filenames
+		will be used for the keys in the ConfigMap or Secret.
+		
+		The default search path can be overridden with the --inputdir flag.`)
+
+	loadExample = templates.Examples(`
+		# Load the "test" configmap into the "namespace" namespace
+		# from directory ./configmaps/namespace/test
+		%[1]s load configmap test
+		
+		# Load the "test" Secret into the "namespace" namespace
+		# from directory ./configmaps/namespace/test
+		%[1]s load secret test
+
+		# Load the "test" Secret into the "test" namespace
+		# from directory ./configmaps/test/test
+		%[1]s load secret test -n test
+
+		# Load the test secret into the current namespace
+		# from ./testsecret
+		%[1]s dump secret test --inputputdir testsecret
+		`)
 )
 
 func NewLoadCmd(ctx context.Context, in io.Reader, out io.Writer, err io.Writer) *cobra.Command {
-
-	// loadCmd represents the load command
-	var loadCmd = &cobra.Command{
-		Use:   "load",
-		Short: "Load the contents of objects to a directory as separate files.",
-		Long: `This command lets you load the contents of ConfigMaps or Secrets
-		to a directory as separate files.`,
-		// Run: func(cmd *cobra.Command, args []string) {}
-
-	}
-
 	cobra.OnInitialize(initConfig)
 
 	KubernetesConfigFlags = genericclioptions.NewConfigFlags(false)
-	KubernetesConfigFlags.AddFlags(loadCmd.PersistentFlags())
 
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	factory := cmdutil.NewFactory(KubernetesConfigFlags)
 	ioStreams := genericclioptions.IOStreams{In: in, Out: out, ErrOut: err}
 
+	o := Options{
+		IOStreams: ioStreams,
+	}
+
+	// loadCmd represents the load command
+	var loadCmd = &cobra.Command{
+		Use:     fmt.Sprintf("%s load secret|configmap name", parentCmd),
+		Short:   "Load the contents of an object from the files in a directory, with the filenames as keys.",
+		Long:    fmt.Sprintf(loadLong),
+		Example: fmt.Sprintf(loadExample, parentCmd),
+		Args:    o.ValidateArgumentsRoot,
+
+		Run: func(cmd *cobra.Command, args []string) {
+			err := o.Setup(factory)
+			cobra.CheckErr(err)
+
+			var typeDir string
+
+			switch o.Kind {
+			case "configmap":
+				typeDir = "configmaps"
+			case "secret":
+				typeDir = "secrets"
+			}
+
+			inputDir, err := cmd.Flags().GetString("inputdir")
+			cobra.CheckErr(err)
+			if inputDir != "" {
+				o.SetDirectory(inputDir)
+			} else {
+				basedir, err := cmd.Flags().GetString("basedir")
+				cobra.CheckErr(err)
+
+				o.SetDirectory(basedir, typeDir, o.Namespace, o.Name)
+			}
+			err = o.ReadData()
+			cobra.CheckErr(err)
+
+			var obj runtime.Object
+
+			switch o.Kind {
+			case "configmap":
+				obj = o.GetConfigMap()
+			case "secret":
+				obj = o.GetSecret()
+			}
+
+			o.Printer, err = genericclioptions.NewJSONYamlPrintFlags().ToPrinter("yaml")
+			cobra.CheckErr(err)
+
+			err = o.Printer.PrintObj(obj, o.Out)
+			cobra.CheckErr(err)
+
+		},
+	}
+
+	KubernetesConfigFlags.AddFlags(loadCmd.PersistentFlags())
+
 	loadCmd.PersistentFlags().String("basedir", ".", "Set the base directory for the default search path, <basedir>/<object>/<namespace>/<name>.")
 	loadCmd.PersistentFlags().String("inputdir", "", "If supplied, overrides the default search path and loads all files from the specified directory.")
-	loadCmd.AddCommand(newLoadConfigMapCommand(ctx, ioStreams, factory))
-	loadCmd.AddCommand(newLoadSecretCommand(ctx, ioStreams, factory))
+
+	// Hide most of the standard Kubectl flags. They'll still work, just not show up in help.
+	loadCmd.PersistentFlags().MarkHidden("as-group")
+	loadCmd.PersistentFlags().MarkHidden("as")
+	loadCmd.PersistentFlags().MarkHidden("cache-dir")
+	loadCmd.PersistentFlags().MarkHidden("certificate-authority")
+	loadCmd.PersistentFlags().MarkHidden("client-certificate")
+	loadCmd.PersistentFlags().MarkHidden("client-key")
+	loadCmd.PersistentFlags().MarkHidden("cluster")
+	loadCmd.PersistentFlags().MarkHidden("context")
+	loadCmd.PersistentFlags().MarkHidden("insecure-skip-tls-verify")
+	loadCmd.PersistentFlags().MarkHidden("kubeconfig")
+	loadCmd.PersistentFlags().MarkHidden("password")
+	loadCmd.PersistentFlags().MarkHidden("request-timeout")
+	loadCmd.PersistentFlags().MarkHidden("server")
+	loadCmd.PersistentFlags().MarkHidden("tls-server-name")
+	loadCmd.PersistentFlags().MarkHidden("token")
+	loadCmd.PersistentFlags().MarkHidden("user")
+	loadCmd.PersistentFlags().MarkHidden("username")
 	return loadCmd
-}
-
-func newLoadConfigMapCommand(ctx context.Context, ioStreams genericclioptions.IOStreams, f cmdutil.Factory) *cobra.Command {
-
-	o := Options{
-		IOStreams: ioStreams,
-	}
-
-	var configMapCmd = &cobra.Command{
-		Use:   "configmap <name>",
-		Short: "Load the contents of a ConfigMap from a directory as separate files.",
-		Long: `This application is a tool to load the contents of a ConfigMap
-		from a directory containing files, the names of which will be used as the keys.
-
-		Labels and annotations may be read from a .metadat.yaml file in the source directory.
-		
-		The default source directory is <basedir>/configmaps/<namespace>/<name>, with the
-		keys as the filenames.
-		
-		This behavior can be overridden with the --inputDir flag.`,
-		Args: o.ValidateArguments,
-		Run: func(cmd *cobra.Command, args []string) {
-			err := o.Setup(f)
-			cobra.CheckErr(err)
-
-			inputDir, err := cmd.Flags().GetString("inputdir")
-			cobra.CheckErr(err)
-			if inputDir != "" {
-				o.SetDirectory(inputDir)
-			} else {
-				basedir, err := cmd.Flags().GetString("basedir")
-				cobra.CheckErr(err)
-
-				o.SetDirectory(basedir, "configmaps", o.Namespace, o.Name)
-			}
-			err = o.ReadData()
-			cobra.CheckErr(err)
-			configmap := o.GetConfigMap()
-
-			o.Printer, err = genericclioptions.NewJSONYamlPrintFlags().ToPrinter("yaml")
-			cobra.CheckErr(err)
-
-			err = o.Printer.PrintObj(configmap, o.Out)
-			cobra.CheckErr(err)
-
-		},
-	}
-
-	return configMapCmd
-}
-
-func newLoadSecretCommand(ctx context.Context, ioStreams genericclioptions.IOStreams, f cmdutil.Factory) *cobra.Command {
-
-	o := Options{
-		IOStreams: ioStreams,
-	}
-
-	var secretCmd = &cobra.Command{
-		Use:   "secret <name>",
-		Short: "Load the contents of a Secret to a directory as separate files, decoding them on the way.",
-		Long: `This application is a tool to dump the contents of a Secret
-		from a directory containing files, the names of which will be used as the keys.
-
-		Labels and annotations may be read from a .metadata.yaml file in the source directory.
-		
-		The default source directory is <basedir>/secrets/<namespace>/<name>, with the
-		keys as the filenames.
-		
-		This behavior can be overridden with the --inputdir flag.`,
-		Args: o.ValidateArguments,
-		Run: func(cmd *cobra.Command, args []string) {
-			err := o.Setup(f)
-			cobra.CheckErr(err)
-
-			inputDir, err := cmd.Flags().GetString("inputdir")
-			cobra.CheckErr(err)
-			if inputDir != "" {
-				o.SetDirectory(inputDir)
-			} else {
-				basedir, err := cmd.Flags().GetString("basedir")
-				cobra.CheckErr(err)
-
-				o.SetDirectory(basedir, "secrets", o.Namespace, o.Name)
-			}
-
-			err = o.ReadData()
-			cobra.CheckErr(err)
-			secret := o.GetSecret()
-
-			o.Printer, err = genericclioptions.NewJSONYamlPrintFlags().ToPrinter("yaml")
-			cobra.CheckErr(err)
-
-			err = o.Printer.PrintObj(secret, o.Out)
-			cobra.CheckErr(err)
-		},
-	}
-
-	return secretCmd
 }

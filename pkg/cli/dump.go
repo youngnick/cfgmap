@@ -55,8 +55,6 @@ var (
 		# Export the test secret to ./testsecret
 		%[1]s dump secret test --outputdir testsecret
 		`)
-
-	parent = "kubectl"
 )
 
 func NewDumpCmd(ctx context.Context, in io.Reader, out io.Writer, err io.Writer) *cobra.Command {
@@ -75,10 +73,10 @@ func NewDumpCmd(ctx context.Context, in io.Reader, out io.Writer, err io.Writer)
 
 	// dumpCmd represents the dump command
 	var dumpCmd = &cobra.Command{
-		Use:     fmt.Sprintf("%s dump secret|configmap name", parent),
+		Use:     fmt.Sprintf("%s dump secret|configmap name", parentCmd),
 		Short:   "Dump the contents of an object to a directory as separate files.",
-		Long:    fmt.Sprintf(dumpLong, parent),
-		Example: fmt.Sprintf(dumpExample, parent),
+		Long:    fmt.Sprintf(dumpLong),
+		Example: fmt.Sprintf(dumpExample, parentCmd),
 		Args:    o.ValidateArgumentsRoot,
 		Run: func(cmd *cobra.Command, args []string) {
 			err := o.Setup(factory)
@@ -121,5 +119,25 @@ func NewDumpCmd(ctx context.Context, in io.Reader, out io.Writer, err io.Writer)
 	KubernetesConfigFlags.AddFlags(dumpCmd.PersistentFlags())
 	dumpCmd.PersistentFlags().String("basedir", ".", "Set the base directory for the configmap directory to be created in.")
 	dumpCmd.PersistentFlags().String("outputdir", "", "If supplied, overrides the default directory structure and puts all generated files in the specified directory.")
+
+	// Hide most of the standard Kubectl flags. They'll still work, just not show up in help.
+	dumpCmd.PersistentFlags().MarkHidden("as-group")
+	dumpCmd.PersistentFlags().MarkHidden("as")
+	dumpCmd.PersistentFlags().MarkHidden("cache-dir")
+	dumpCmd.PersistentFlags().MarkHidden("certificate-authority")
+	dumpCmd.PersistentFlags().MarkHidden("client-certificate")
+	dumpCmd.PersistentFlags().MarkHidden("client-key")
+	dumpCmd.PersistentFlags().MarkHidden("cluster")
+	dumpCmd.PersistentFlags().MarkHidden("context")
+	dumpCmd.PersistentFlags().MarkHidden("insecure-skip-tls-verify")
+	dumpCmd.PersistentFlags().MarkHidden("kubeconfig")
+	dumpCmd.PersistentFlags().MarkHidden("password")
+	dumpCmd.PersistentFlags().MarkHidden("request-timeout")
+	dumpCmd.PersistentFlags().MarkHidden("server")
+	dumpCmd.PersistentFlags().MarkHidden("tls-server-name")
+	dumpCmd.PersistentFlags().MarkHidden("token")
+	dumpCmd.PersistentFlags().MarkHidden("user")
+	dumpCmd.PersistentFlags().MarkHidden("username")
+
 	return dumpCmd
 }

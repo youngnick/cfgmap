@@ -24,6 +24,7 @@ var cfgFile string
 
 var (
 	KubernetesConfigFlags *genericclioptions.ConfigFlags
+	parentCmd             = "kubectl"
 )
 
 // initConfig reads in config file and ENV variables if set.
