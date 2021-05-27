@@ -49,6 +49,20 @@ func initConfig() {
 	}
 }
 
+type MetaData struct {
+	Annotations map[string]string `yaml:"annotations,omitempty"`
+	Labels      map[string]string `yaml:"labels,omitempty"`
+}
+
+func (m MetaData) NotEmpty() bool {
+
+	if len(m.Annotations) == 0 && len(m.Labels) == 0 {
+		return false
+	}
+
+	return true
+}
+
 type Options struct {
 	genericclioptions.IOStreams
 
@@ -69,11 +83,6 @@ type Options struct {
 	MetaData MetaData
 
 	Printer printers.ResourcePrinter
-}
-
-type MetaData struct {
-	Annotations map[string]string `yaml:"annotations,omitempty"`
-	Labels      map[string]string `yaml:"labels,omitempty"`
 }
 
 // Setup initialises the RestConfig, Clientset, and Namespace fields.
@@ -142,36 +151,56 @@ func (o *Options) SetData(data interface{}) error {
 }
 
 func (o *Options) WriteData() error {
-	err := o.EnsureDirectory()
-	if err != nil {
-		return err
-	}
 
-	metadataFile, err := yaml.Marshal(o.MetaData)
-	if err != nil {
-		return err
-	}
+	wroteFile := false
 
-	if len(metadataFile) > 0 {
-		err = ioutil.WriteFile(filepath.Join(o.Directory, ".metadata.yaml"), metadataFile, 0644)
+	if o.MetaData.NotEmpty() {
+
+		err := o.EnsureDirectory()
 		if err != nil {
 			return err
 		}
-	}
 
-	for key, value := range o.Data {
-		fmt.Fprintf(o.IOStreams.Out, "Creating %s...", key)
-
-		filename := filepath.Join(o.Directory, key)
-
-		err := ioutil.WriteFile(filename, []byte(value), 0644)
+		metadataFile, err := yaml.Marshal(o.MetaData)
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(o.IOStreams.Out, "Done\n")
+
+		if len(metadataFile) > 0 {
+			err = ioutil.WriteFile(filepath.Join(o.Directory, ".metadata.yaml"), metadataFile, 0644)
+			if err != nil {
+				return err
+			}
+		}
+
+		wroteFile = true
 	}
 
-	return nil
+	if len(o.Data) > 0 {
+		err := o.EnsureDirectory()
+		if err != nil {
+			return err
+		}
+
+		for key, value := range o.Data {
+			fmt.Fprintf(o.IOStreams.Out, "Creating %s...", key)
+
+			filename := filepath.Join(o.Directory, key)
+
+			err := ioutil.WriteFile(filename, []byte(value), 0644)
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(o.IOStreams.Out, "Done\n")
+		}
+		wroteFile = true
+	}
+
+	if wroteFile {
+		return nil
+	}
+
+	return fmt.Errorf("%s %s contained no data or metadata", o.Kind, o.Name)
 }
 
 func (o *Options) ReadData() error {
@@ -275,13 +304,12 @@ func (o *Options) ValidateArgumentsRoot(cmd *cobra.Command, args []string) error
 
 	objType := args[0]
 
-	// Plurals are expected in o.Kind
 	switch objType {
 	case "configmap":
 	case "cm":
-		o.Kind = "configmaps"
+		o.Kind = "configmap"
 	case "secret":
-		o.Kind = "secrets"
+		o.Kind = "secret"
 	default:
 		return fmt.Errorf("Don't know how to dump a %s object", objType)
 	}

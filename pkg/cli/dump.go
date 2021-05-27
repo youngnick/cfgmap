@@ -107,11 +107,11 @@ func NewDumpCmd(ctx context.Context, in io.Reader, out io.Writer, err io.Writer)
 			} else {
 				basedir, err := cmd.Flags().GetString("basedir")
 				cobra.CheckErr(err)
-				o.SetDirectory(basedir, o.Kind, o.Namespace, o.Name)
+				o.SetDirectory(basedir, o.Kind+"s", o.Namespace, o.Name)
 
 			}
 
-			fmt.Fprintf(ioStreams.Out, "Using directory %s\n", o.Directory)
+			fmt.Fprintf(ioStreams.ErrOut, "Using directory %s\n", o.Directory)
 
 			cobra.CheckErr(o.WriteData())
 
