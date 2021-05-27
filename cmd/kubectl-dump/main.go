@@ -8,7 +8,7 @@ import (
 	"github.com/youngnick/kubectl-directory-output/internal/contexthelp"
 	"github.com/youngnick/kubectl-directory-output/internal/signalhelp"
 	"github.com/youngnick/kubectl-directory-output/pkg/cli"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // required for GKE
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // required for GKE
 )
 
 func main() {
